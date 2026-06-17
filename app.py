@@ -157,7 +157,8 @@ with tab3:
             else:
                 total_hours = invoice_df['hours'].sum()
                 total_due = total_hours * rate_per_hour
-                month_str = start_date.strftime("%B %Y") if start_date.replace(day=1) == end_date.replace(day=1) else f"{start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')}"
+                base_month = start_date.strftime("%B %Y") if start_date.replace(day=1) == end_date.replace(day=1) else f"{start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')}"
+                month_str = f"{base_month} ({start_date.strftime('%m/%d/%Y')} - {end_date.strftime('%m/%d/%Y')})"
                 
                 # Format data for the table - no grouping so notes are preserved
                 summary_df = invoice_df.copy()
