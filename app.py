@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date
-from streamlit_gsheets import GSheetsConnection
+import gspread
 
 # Set page configuration
 st.set_page_config(page_title="NAMI Hours Logger", page_icon="📝", layout="centered")
@@ -9,24 +9,40 @@ st.set_page_config(page_title="NAMI Hours Logger", page_icon="📝", layout="cen
 # --- Database Setup (Google Sheets) ---
 def load_data():
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        # Read the sheet directly, ttl=0 ensures we don't load stale data
-        df = conn.read(ttl=0)
-        df = df.dropna(how="all") # Drop empty rows
+        # Load credentials from Streamlit Secrets
+        creds_dict = dict(st.secrets["connections"]["gsheets"])
+        spreadsheet_url = creds_dict.pop("spreadsheet")
+        
+        # Connect to Google Sheets via gspread
+        gc = gspread.service_account_from_dict(creds_dict)
+        sh = gc.open_by_url(spreadsheet_url)
+        worksheet = sh.sheet1
+        
+        data = worksheet.get_all_records()
+        df = pd.DataFrame(data)
+        
         if df.empty:
             return pd.DataFrame(columns=["log_date", "hours", "task_type", "notes"])
+        
         # Ensure log_date is correctly ordered
         if 'log_date' in df.columns:
             df = df.sort_values(by='log_date', ascending=False)
         return df
-    except Exception:
-        # If the sheet doesn't exist yet or is empty, return an empty dataframe
+    except Exception as e:
+        # If the sheet doesn't exist yet, is empty, or errors out
         return pd.DataFrame(columns=["log_date", "hours", "task_type", "notes"])
 
 def save_data(df):
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    # The GSheets connection expects an update method to write back to the whole sheet
-    conn.update(data=df)
+    creds_dict = dict(st.secrets["connections"]["gsheets"])
+    spreadsheet_url = creds_dict.pop("spreadsheet")
+    
+    gc = gspread.service_account_from_dict(creds_dict)
+    sh = gc.open_by_url(spreadsheet_url)
+    worksheet = sh.sheet1
+    
+    # Write the entire dataframe back to the sheet
+    worksheet.clear()
+    worksheet.update([df.columns.values.tolist()] + df.fillna("").values.tolist())
 
 # --- App Layout ---
 st.title("📝 Meghan's NAMI Hours Log")
